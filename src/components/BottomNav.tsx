@@ -1,17 +1,24 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, MessageCircleHeart, Target, HandHeart, Settings } from "lucide-react";
+import { Home, MessageCircleHeart, Target, HandHeart, Settings, Moon } from "lucide-react";
 import { motion } from "framer-motion";
-
-const navItems = [
-  { to: "/home", icon: Home, label: "Inicio" },
-  { to: "/journal", icon: MessageCircleHeart, label: "Sentir" },
-  { to: "/processes", icon: Target, label: "Procesos" },
-  { to: "/help", icon: HandHeart, label: "Ayuda" },
-  { to: "/settings", icon: Settings, label: "Ajustes" },
-];
+import { useState, useEffect } from "react";
 
 const BottomNav = () => {
   const location = useLocation();
+  const [cycleEnabled, setCycleEnabled] = useState(false);
+
+  useEffect(() => {
+    setCycleEnabled(localStorage.getItem("sentir-cycle-enabled") === "true");
+  }, []);
+
+  const navItems = [
+    { to: "/home", icon: Home, label: "Inicio" },
+    { to: "/journal", icon: MessageCircleHeart, label: "Sentir" },
+    { to: "/processes", icon: Target, label: "Procesos" },
+    ...(cycleEnabled ? [{ to: "/cycle", icon: Moon, label: "Ciclo" }] : []),
+    { to: "/help", icon: HandHeart, label: "Ayuda" },
+    { to: "/settings", icon: Settings, label: "Ajustes" },
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-xl border-t border-border z-50">
