@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, MessageCircleHeart, Target, Settings } from "lucide-react";
+import { Home, MessageCircleHeart, Target, HandHeart, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
 const navItems = [
   { to: "/home", icon: Home, label: "Inicio" },
   { to: "/journal", icon: MessageCircleHeart, label: "Sentir" },
   { to: "/processes", icon: Target, label: "Procesos" },
+  { to: "/help", icon: HandHeart, label: "Ayuda" },
   { to: "/settings", icon: Settings, label: "Ajustes" },
 ];
 

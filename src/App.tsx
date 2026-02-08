@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Journal from "./pages/Journal";
 import Processes from "./pages/Processes";
 import Settings from "./pages/Settings";
+import ProfessionalHelp from "./pages/ProfessionalHelp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/journal" element={<Journal />} />
           <Route path="/processes" element={<Processes />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/help" element={<ProfessionalHelp />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
