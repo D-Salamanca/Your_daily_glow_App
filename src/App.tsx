@@ -10,6 +10,7 @@ import Journal from "./pages/Journal";
 import Processes from "./pages/Processes";
 import Settings from "./pages/Settings";
 import ProfessionalHelp from "./pages/ProfessionalHelp";
+import CycleTracking from "./pages/CycleTracking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/home" element={<Home />} />
           <Route path="/journal" element={<Journal />} />
           <Route path="/processes" element={<Processes />} />
+          <Route path="/cycle" element={<CycleTracking />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<ProfessionalHelp />} />
           <Route path="*" element={<NotFound />} />

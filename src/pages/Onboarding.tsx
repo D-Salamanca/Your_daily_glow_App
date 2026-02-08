@@ -6,11 +6,12 @@ import { Heart, Sparkles, Leaf, Sun, ArrowRight } from "lucide-react";
 interface OnboardingData {
   preference: string;
   gender: string;
+  cycle: string;
   goal: string;
   time: number;
 }
 
-const steps = [
+const baseSteps = [
   {
     id: "welcome",
     title: "Bienvenido/a a Sentir",
@@ -35,6 +36,16 @@ const steps = [
       { value: "female", label: "Mujer" },
       { value: "male", label: "Hombre" },
       { value: "other", label: "Prefiero no decirlo" },
+    ],
+  },
+  {
+    id: "cycle",
+    title: "¿Te gustaría registrar tu ciclo menstrual?",
+    subtitle: "Es opcional y te ayuda a entender mejor tus emociones",
+    condition: (data: Partial<OnboardingData>) => data.gender === "female",
+    options: [
+      { value: "yes", label: "🌙 Sí, me interesa", desc: "Contexto emocional según tu fase" },
+      { value: "no", label: "No, gracias", desc: "Puedes activarlo después en ajustes" },
     ],
   },
   {
@@ -65,17 +76,30 @@ const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<Partial<OnboardingData>>({});
 
+  const steps = baseSteps.filter(
+    (s) => !("condition" in s && s.condition) || s.condition(data)
+  );
+
   const current = steps[step];
 
   const handleSelect = (value: string) => {
     const key = current.id as keyof OnboardingData;
-    setData((prev) => ({ ...prev, [key]: value }));
+    const newData = { ...data, [key]: value };
+    setData(newData);
 
-    if (step < steps.length - 1) {
+    // Recalculate steps with new data to find next step
+    const updatedSteps = baseSteps.filter(
+      (s) => !("condition" in s && s.condition) || s.condition(newData)
+    );
+
+    if (step < updatedSteps.length - 1) {
       setTimeout(() => setStep(step + 1), 300);
     } else {
-      localStorage.setItem("sentir-onboarding", JSON.stringify({ ...data, [key]: value }));
+      localStorage.setItem("sentir-onboarding", JSON.stringify(newData));
       localStorage.setItem("sentir-onboarded", "true");
+      if (newData.cycle === "yes") {
+        localStorage.setItem("sentir-cycle-enabled", "true");
+      }
       navigate("/home");
     }
   };
