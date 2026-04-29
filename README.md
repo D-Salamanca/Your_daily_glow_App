@@ -1,73 +1,45 @@
-# Welcome to your Lovable project
+# Sentir · Tu compañero emocional
 
-## Project info
+App de bienestar emocional personal. Reflexiona, procesa y crece emocionalmente cada día.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- React 18 + TypeScript + Vite
+- Ionic React (mobile shell)
+- Tailwind CSS + shadcn/ui
+- Firebase Authentication
+- Supabase (base de datos)
+- IA: Claude (Anthropic) · Ollama (local) · Supabase Edge Function
 
-There are several ways of editing your application.
+## Inicio rápido
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+npm install
+npm start
 ```
 
-**Edit a file directly in GitHub**
+## Variables de entorno
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Copia `.env.example` a `.env` y rellena los valores:
 
-**Use GitHub Codespaces**
+| Variable | Descripción |
+|---|---|
+| `VITE_FIREBASE_API_KEY` | Credenciales de Firebase (auth) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | |
+| `VITE_FIREBASE_PROJECT_ID` | |
+| `VITE_FIREBASE_STORAGE_BUCKET` | |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | |
+| `VITE_FIREBASE_APP_ID` | |
+| `VITE_ANTHROPIC_API_KEY` | API key de Claude — [console.anthropic.com](https://console.anthropic.com) |
+| `VITE_ANTHROPIC_MODEL` | Modelo (default: `claude-haiku-4-5-20251001`) |
+| `VITE_OLLAMA_MODEL` | Modelo local de Ollama (ej: `llama3.2`) |
+| `VITE_SUPABASE_URL` | URL del proyecto Supabase |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Clave pública de Supabase |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Proveedor de IA
 
-## What technologies are used for this project?
+La app usa el primer proveedor configurado en este orden:
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. **Claude** — si `VITE_ANTHROPIC_API_KEY` tiene valor
+2. **Ollama** — si `VITE_OLLAMA_MODEL` tiene valor (requiere `ollama serve`)
+3. **Supabase Edge Function** — fallback por defecto

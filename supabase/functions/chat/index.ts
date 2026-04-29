@@ -13,23 +13,19 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content: `Eres Sentir, un compañero emocional cálido y empático. Tu rol es escuchar, validar emociones y acompañar al usuario en su bienestar emocional. 
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        system: `Eres Sentir, un compañero emocional cálido y empático. Tu rol es escuchar, validar emociones y acompañar al usuario en su bienestar emocional.
 
 Reglas:
 - Responde siempre en español, con calidez y empatía.
@@ -40,13 +36,11 @@ Reglas:
 - Mantén respuestas concisas (2-4 párrafos máximo).
 - Usa emojis con moderación para dar calidez 💚.
 - Si el usuario menciona pensamientos suicidas o autolesiones, responde con compasión y proporciona el número de crisis: 024.`,
-            },
-            ...messages,
-          ],
-          stream: true,
-        }),
-      }
-    );
+        messages,
+        max_tokens: 1024,
+        stream: true,
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {

@@ -6,7 +6,77 @@ import ReactMarkdown from "react-markdown";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
+const ANTHROPIC_MODEL = (import.meta.env.VITE_ANTHROPIC_MODEL as string | undefined) || "claude-haiku-4-5-20251001";
+const OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL as string | undefined;
+const SUPABASE_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+const SYSTEM_PROMPT = `Eres Sentir, un compañero emocional cálido y empático. Tu rol es escuchar, validar emociones y acompañar al usuario en su bienestar emocional.
+
+Reglas:
+- Responde siempre en español, con calidez y empatía.
+- Usa un tono cercano, como un amigo de confianza.
+- Valida las emociones del usuario antes de ofrecer perspectivas.
+- Haz preguntas abiertas para profundizar la reflexión.
+- No diagnostiques ni des consejos médicos. Si detectas riesgo, sugiere buscar ayuda profesional.
+- Mantén respuestas concisas (2-4 párrafos máximo).
+- Usa emojis con moderación para dar calidez 💚.
+- Si el usuario menciona pensamientos suicidas o autolesiones, responde con compasión y proporciona el número de crisis: 024.`;
+
+/* Extrae el texto de un chunk SSE — compatible con Anthropic y OpenAI */
+function extractChunkText(parsed: any): string {
+  return parsed.delta?.text                      // Anthropic: content_block_delta
+    ?? parsed.choices?.[0]?.delta?.content       // OpenAI / Ollama
+    ?? "";
+}
+
+function buildChatRequest(msgs: Msg[]): { url: string; init: RequestInit } {
+  if (ANTHROPIC_API_KEY) {
+    return {
+      url: "/anthropic/v1/messages",
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          system: SYSTEM_PROMPT,
+          messages: msgs,
+          max_tokens: 1024,
+          stream: true,
+        }),
+      },
+    };
+  }
+  if (OLLAMA_MODEL) {
+    return {
+      url: "/ollama/v1/chat/completions",
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...msgs],
+          stream: true,
+        }),
+      },
+    };
+  }
+  return {
+    url: SUPABASE_CHAT_URL,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages: msgs }),
+    },
+  };
+}
 
 const Journal = () => {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -30,14 +100,9 @@ const Journal = () => {
     let assistantSoFar = "";
 
     try {
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      });
+      const allMsgs = [...messages, userMsg];
+      const { url, init } = buildChatRequest(allMsgs);
+      const resp = await fetch(url, init);
 
       if (!resp.ok || !resp.body) {
         const errData = await resp.json().catch(() => ({}));
@@ -77,7 +142,7 @@ const Journal = () => {
           if (jsonStr === "[DONE]") { streamDone = true; break; }
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const content = extractChunkText(parsed);
             if (content) upsert(content);
           } catch {
             textBuffer = line + "\n" + textBuffer;
@@ -96,7 +161,7 @@ const Journal = () => {
           if (jsonStr === "[DONE]") continue;
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const content = extractChunkText(parsed);
             if (content) upsert(content);
           } catch { /* ignore */ }
         }

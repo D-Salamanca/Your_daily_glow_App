@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import { User, Bell, Moon, Heart, Shield, LogOut, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import BottomNav from "@/components/BottomNav";
 
 const settingsGroups = [
@@ -26,6 +28,14 @@ const settingsGroups = [
 ];
 
 const Settings = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="px-6 pt-12">
@@ -78,7 +88,10 @@ const Settings = () => {
           ))}
         </div>
 
-        <button className="w-full mt-8 flex items-center justify-center gap-2 p-3 text-destructive font-medium rounded-xl hover:bg-destructive/5 transition-colors">
+        <button
+          onClick={handleLogout}
+          className="w-full mt-8 flex items-center justify-center gap-2 p-3 text-destructive font-medium rounded-xl hover:bg-destructive/5 transition-colors active:scale-[0.98]"
+        >
           <LogOut className="w-4 h-4" />
           Cerrar sesión
         </button>
