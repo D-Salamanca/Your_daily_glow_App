@@ -1,0 +1,18 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: hsl(var(--secondary) / 0.6);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+}
+
+.count {
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.unit {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}

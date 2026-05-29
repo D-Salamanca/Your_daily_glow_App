@@ -23,6 +23,9 @@ export default defineConfig(({ mode: _mode }) => ({
     },
   },
   plugins: [react()],
+  optimizeDeps: {
+    include: ["leaflet"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

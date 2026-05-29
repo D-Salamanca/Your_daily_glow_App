@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { createUserProfile } from "@/lib/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Sparkles, Leaf, Sun, ArrowRight } from "lucide-react";
 
@@ -73,6 +75,7 @@ const baseSteps = [
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { user }  = useAuth();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<Partial<OnboardingData>>({});
 
@@ -95,10 +98,19 @@ const Onboarding = () => {
     if (step < updatedSteps.length - 1) {
       setTimeout(() => setStep(step + 1), 300);
     } else {
+      // Guardar en localStorage (compatibilidad)
       localStorage.setItem("sentir-onboarding", JSON.stringify(newData));
       localStorage.setItem("sentir-onboarded", "true");
       if (newData.cycle === "yes") {
         localStorage.setItem("sentir-cycle-enabled", "true");
+      }
+      // Guardar en Firestore si hay usuario autenticado
+      if (user) {
+        createUserProfile(user, {
+          onboarded:      true,
+          cycleEnabled:   newData.cycle === "yes",
+          onboardingData: newData,
+        }).catch(console.error);
       }
       navigate("/home");
     }

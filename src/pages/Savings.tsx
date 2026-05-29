@@ -71,7 +71,9 @@ const Savings = () => {
   // ── POST create goal ───────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: (goal: Omit<Goal, "id">) => createGoal(goal),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["goals"] }),
+    onSuccess: (newGoal) => {
+      queryClient.setQueryData<Goal[]>(["goals"], (old = []) => [...old, newGoal]);
+    },
   });
 
   const handleCreate = () => {
@@ -92,7 +94,11 @@ const Savings = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Goal> }) =>
       updateGoal(id, updates),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["goals"] }),
+    onSuccess: (updatedGoal) => {
+      queryClient.setQueryData<Goal[]>(["goals"], (old = []) =>
+        old.map((g) => (g.id === updatedGoal.id ? updatedGoal : g))
+      );
+    },
   });
 
   const handleAddAmount = (goal: Goal) => {
@@ -109,7 +115,11 @@ const Savings = () => {
   // ── DELETE goal ────────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteGoal(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["goals"] }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Goal[]>(["goals"], (old = []) =>
+        old.filter((g) => g.id !== id)
+      );
+    },
   });
 
   // ─── Render ────────────────────────────────────────────────────────────────

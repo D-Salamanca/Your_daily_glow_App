@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, Bot, User } from "lucide-react";
+import { Send, Sparkles, Bot, User, Camera, X } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/contexts/AuthContext";
+import { saveJournalMessage, getJournalMessages } from "@/lib/firestore";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; imageUrl?: string };
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
-const ANTHROPIC_MODEL = (import.meta.env.VITE_ANTHROPIC_MODEL as string | undefined) || "claude-haiku-4-5-20251001";
-const OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL as string | undefined;
-const SUPABASE_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const ANTHROPIC_API_KEY  = import.meta.env.VITE_ANTHROPIC_API_KEY  as string | undefined;
+const ANTHROPIC_MODEL    = (import.meta.env.VITE_ANTHROPIC_MODEL   as string | undefined) || "claude-haiku-4-5-20251001";
+const OLLAMA_MODEL       = import.meta.env.VITE_OLLAMA_MODEL       as string | undefined;
+const OLLAMA_VISION_MODEL = import.meta.env.VITE_OLLAMA_VISION_MODEL as string | undefined;
+const SUPABASE_CHAT_URL  = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 const SYSTEM_PROMPT = `Eres Sentir, un compañero emocional cálido y empático. Tu rol es escuchar, validar emociones y acompañar al usuario en su bienestar emocional.
 
@@ -21,16 +24,63 @@ Reglas:
 - No diagnostiques ni des consejos médicos. Si detectas riesgo, sugiere buscar ayuda profesional.
 - Mantén respuestas concisas (2-4 párrafos máximo).
 - Usa emojis con moderación para dar calidez 💚.
-- Si el usuario menciona pensamientos suicidas o autolesiones, responde con compasión y proporciona el número de crisis: 024.`;
+- Si el usuario menciona pensamientos suicidas o autolesiones, responde con compasión y proporciona el número de crisis: 024.
 
-/* Extrae el texto de un chunk SSE — compatible con Anthropic y OpenAI */
+Cuando analices una imagen de una persona, describe su estado emocional con empatía y pregunta cómo se siente.`;
+
+const VISION_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
+
+Estás analizando una imagen enviada por el usuario. Observa atentamente las expresiones faciales, postura corporal y contexto visual para identificar su estado emocional actual. Responde con calidez describiendo lo que percibes y haciendo una pregunta abierta.`;
+
 function extractChunkText(parsed: any): string {
-  return parsed.delta?.text                      // Anthropic: content_block_delta
-    ?? parsed.choices?.[0]?.delta?.content       // OpenAI / Ollama
+  return parsed.delta?.text
+    ?? parsed.choices?.[0]?.delta?.content
     ?? "";
 }
 
-function buildChatRequest(msgs: Msg[]): { url: string; init: RequestInit } {
+type OllamaVisionContent =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+function buildChatRequest(
+  msgs: Msg[],
+  imageDataUrl?: string
+): { url: string; init: RequestInit } {
+
+  // ── Visión con imagen ────────────────────────────────────────────────────
+  if (imageDataUrl) {
+    if (!OLLAMA_VISION_MODEL) {
+      throw new Error(
+        "Para analizar imágenes necesitas un modelo de visión. Ejecuta: ollama pull llama3.2-vision"
+      );
+    }
+    const lastMsg = msgs[msgs.length - 1];
+    const userContent: OllamaVisionContent[] = [
+      { type: "image_url", image_url: { url: imageDataUrl } },
+      {
+        type: "text",
+        text: lastMsg.content || "¿Qué estado de ánimo ves en esta imagen? Analiza mi expresión y dime cómo me ves.",
+      },
+    ];
+    return {
+      url: "/ollama/v1/chat/completions",
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: OLLAMA_VISION_MODEL,
+          messages: [
+            { role: "system", content: VISION_SYSTEM_PROMPT },
+            ...msgs.slice(0, -1).map((m) => ({ role: m.role, content: m.content })),
+            { role: "user", content: userContent },
+          ],
+          stream: true,
+        }),
+      },
+    };
+  }
+
+  // ── Anthropic (solo texto) ───────────────────────────────────────────────
   if (ANTHROPIC_API_KEY) {
     return {
       url: "/anthropic/v1/messages",
@@ -44,13 +94,15 @@ function buildChatRequest(msgs: Msg[]): { url: string; init: RequestInit } {
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
           system: SYSTEM_PROMPT,
-          messages: msgs,
+          messages: msgs.map((m) => ({ role: m.role, content: m.content })),
           max_tokens: 1024,
           stream: true,
         }),
       },
     };
   }
+
+  // ── Ollama texto ─────────────────────────────────────────────────────────
   if (OLLAMA_MODEL) {
     return {
       url: "/ollama/v1/chat/completions",
@@ -59,12 +111,17 @@ function buildChatRequest(msgs: Msg[]): { url: string; init: RequestInit } {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: OLLAMA_MODEL,
-          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...msgs],
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...msgs.map((m) => ({ role: m.role, content: m.content })),
+          ],
           stream: true,
         }),
       },
     };
   }
+
+  // ── Supabase fallback ────────────────────────────────────────────────────
   return {
     url: SUPABASE_CHAT_URL,
     init: {
@@ -73,35 +130,85 @@ function buildChatRequest(msgs: Msg[]): { url: string; init: RequestInit } {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: msgs }),
+      body: JSON.stringify({ messages: msgs.map((m) => ({ role: m.role, content: m.content })) }),
     },
   };
 }
 
 const Journal = () => {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const [messages, setMessages]         = useState<Msg[]>([]);
+  const [input, setInput]               = useState("");
+  const [isLoading, setIsLoading]       = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const scrollRef    = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cargar historial desde Firestore al montar
+  useEffect(() => {
+    if (!user) { setHistoryLoading(false); return; }
+    getJournalMessages(user.uid)
+      .then((msgs) =>
+        setMessages(
+          msgs.map((m) => ({
+            role:     m.role,
+            content:  m.content,
+            imageUrl: m.imageUrl,
+          }))
+        )
+      )
+      .catch(console.error)
+      .finally(() => setHistoryLoading(false));
+  }, [user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  const clearPendingImage = () => {
+    setPendingImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || isLoading) return;
+    if ((!text && !pendingImage) || isLoading) return;
 
-    const userMsg: Msg = { role: "user", content: text };
+    const imageToSend = pendingImage;
+    const userMsg: Msg = {
+      role: "user",
+      content: text || "¿Qué estado de ánimo ves en esta imagen?",
+      ...(imageToSend ? { imageUrl: imageToSend } : {}),
+    };
+
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    clearPendingImage();
     setIsLoading(true);
+
+    // Persistir mensaje del usuario en Firestore
+    if (user) {
+      saveJournalMessage(user.uid, {
+        role:     userMsg.role,
+        content:  userMsg.content,
+        imageUrl: userMsg.imageUrl,
+      }).catch(console.error);
+    }
 
     let assistantSoFar = "";
 
     try {
       const allMsgs = [...messages, userMsg];
-      const { url, init } = buildChatRequest(allMsgs);
+      const { url, init } = buildChatRequest(allMsgs, imageToSend ?? undefined);
       const resp = await fetch(url, init);
 
       if (!resp.ok || !resp.body) {
@@ -109,7 +216,7 @@ const Journal = () => {
         throw new Error(errData.error || "Error de conexión");
       }
 
-      const reader = resp.body.getReader();
+      const reader  = resp.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
       let streamDone = false;
@@ -134,14 +241,14 @@ const Journal = () => {
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
+          textBuffer  = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") { streamDone = true; break; }
           try {
-            const parsed = JSON.parse(jsonStr);
+            const parsed  = JSON.parse(jsonStr);
             const content = extractChunkText(parsed);
             if (content) upsert(content);
           } catch {
@@ -160,11 +267,18 @@ const Journal = () => {
           const jsonStr = raw.slice(6).trim();
           if (jsonStr === "[DONE]") continue;
           try {
-            const parsed = JSON.parse(jsonStr);
+            const parsed  = JSON.parse(jsonStr);
             const content = extractChunkText(parsed);
             if (content) upsert(content);
           } catch { /* ignore */ }
         }
+      }
+      // Persistir respuesta del asistente en Firestore
+      if (user && assistantSoFar) {
+        saveJournalMessage(user.uid, {
+          role:    "assistant",
+          content: assistantSoFar,
+        }).catch(console.error);
       }
     } catch (e: any) {
       setMessages((prev) => [
@@ -183,8 +297,11 @@ const Journal = () => {
     }
   };
 
+  const canSend = (input.trim().length > 0 || pendingImage !== null) && !isLoading;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+
       {/* Header */}
       <div className="px-6 pt-12 pb-4">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -197,20 +314,41 @@ const Journal = () => {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-        {messages.length === 0 && (
+        {historyLoading && (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <span className="text-xs">Cargando historial…</span>
+          </div>
+        )}
+
+        {!historyLoading && messages.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="gradient-lavender rounded-2xl p-5 mt-4 flex items-start gap-3"
+            className="space-y-3 mt-4"
           >
-            <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">¿No sabes por dónde empezar?</p>
-              <p className="text-foreground text-sm">
-                Puedes contarme cómo te sientes hoy, algo que te preocupa, o simplemente saludar. Estoy aquí para escucharte.
-              </p>
+            <div className="gradient-lavender rounded-2xl p-5 flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">¿No sabes por dónde empezar?</p>
+                <p className="text-foreground text-sm">
+                  Puedes contarme cómo te sientes hoy, algo que te preocupa, o simplemente saludar.
+                </p>
+              </div>
             </div>
+
+            {OLLAMA_VISION_MODEL && (
+              <div className="gradient-sage rounded-2xl p-4 flex items-start gap-3">
+                <Camera className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Análisis emocional por imagen</p>
+                  <p className="text-foreground text-sm">
+                    Toca el icono de cámara y hazte una foto. Analizaré tu expresión y te diré cómo te veo. 📷
+                  </p>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -227,21 +365,34 @@ const Journal = () => {
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
+
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`max-w-[80%] rounded-2xl text-sm leading-relaxed overflow-hidden ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border text-foreground rounded-bl-md"
                 }`}
               >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p>{msg.content}</p>
+                {/* Imagen adjunta */}
+                {msg.imageUrl && (
+                  <img
+                    src={msg.imageUrl}
+                    alt="foto enviada"
+                    className="w-full max-h-60 object-cover"
+                  />
                 )}
+
+                <div className="px-4 py-3">
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
+                </div>
               </div>
+
               {msg.role === "user" && (
                 <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 mt-1">
                   <User className="w-4 h-4 text-primary" />
@@ -267,25 +418,80 @@ const Journal = () => {
         )}
       </div>
 
-      {/* Input */}
+      {/* Input area */}
       <div className="px-4 pb-20 pt-2 bg-background border-t border-border">
+
+        {/* Preview imagen pendiente */}
+        <AnimatePresence>
+          {pendingImage && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-2"
+            >
+              <div className="relative inline-block">
+                <img
+                  src={pendingImage}
+                  alt="preview"
+                  className="h-24 w-24 object-cover rounded-2xl border-2 border-primary/30"
+                />
+                <button
+                  onClick={clearPendingImage}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-md"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                <div className="absolute bottom-1 left-1 bg-black/50 rounded-lg px-1.5 py-0.5">
+                  <p className="text-white text-[9px] font-medium">📷 lista</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-end gap-2">
+          {/* Botón cámara */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            title={OLLAMA_VISION_MODEL ? "Analizar estado de ánimo por foto" : "Instala un modelo de visión: ollama pull llama3.2-vision"}
+            className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+              pendingImage
+                ? "bg-primary/20 text-primary"
+                : "bg-muted text-muted-foreground hover:text-primary hover:bg-primary/10"
+            }`}
+          >
+            <Camera className="w-4 h-4" />
+          </motion.button>
+
+          {/* Input oculto — cámara frontal en móvil */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe lo que sientes..."
+            placeholder={pendingImage ? "Añade un mensaje o envía solo la foto…" : "Escribe lo que sientes..."}
             rows={1}
             className="flex-1 min-h-[44px] max-h-[120px] bg-card rounded-2xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 resize-none border border-border focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all text-sm leading-relaxed"
           />
+
+          {/* Botón enviar */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
+            disabled={!canSend}
             className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${
-              input.trim() && !isLoading
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
+              canSend ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             }`}
           >
             <Send className="w-4 h-4" />

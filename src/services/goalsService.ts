@@ -58,13 +58,14 @@ export async function createGoal(goal: Omit<Goal, "id">): Promise<Goal> {
 
 // PUT — replace a goal entirely
 export async function updateGoal(id: string, goal: Partial<Goal>): Promise<Goal> {
-  const { data } = await axiosInstance.put<ApiPost>(`/posts/${id}`, {
+  await axiosInstance.put<ApiPost>(`/posts/${id}`, {
     id: Number(id),
     title: goal.name ?? "",
     body: JSON.stringify({ saved: goal.saved }),
     userId: 1,
   });
-  return mapPostToGoal(data);
+  // Return the actual values we sent (JSONPlaceholder doesn't persist them)
+  return { id, name: goal.name ?? "", emoji: goal.emoji ?? "🎯", target: goal.target ?? 0, saved: goal.saved ?? 0, type: goal.type ?? "personal", createdAt: goal.createdAt ?? new Date().toISOString() };
 }
 
 // DELETE — remove a goal

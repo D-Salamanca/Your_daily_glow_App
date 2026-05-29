@@ -6,6 +6,11 @@ import EmotionPicker from "@/components/EmotionPicker";
 import StreakCounter from "@/components/StreakCounter";
 import ActivityCard from "@/components/ActivityCard";
 import BottomNav from "@/components/BottomNav";
+import EmotionChart from "@/components/Index/EmotionChart";
+import { useAuth } from "@/contexts/AuthContext";
+import { getUserProfile, updateUserProfile } from "@/lib/firestore";
+
+const HISTORY_KEY = "sentir-emotion-history";
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -14,42 +19,111 @@ const getGreeting = () => {
   return "Buenas noches";
 };
 
+function readHistory(): { date: string; emotion: string }[] {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"); } catch { return []; }
+}
+
+function saveToHistory(date: string, emotion: string) {
+  const prev    = readHistory().filter((r) => r.date !== date);
+  const updated = [...prev, { date, emotion }].slice(-30);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+}
+
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
-  const [streak, setStreak] = useState(0);
-  const [checkedIn, setCheckedIn] = useState(false);
+  const [streak, setStreak]                   = useState(0);
+  const [checkedIn, setCheckedIn]             = useState(false);
+  const [chartKey, setChartKey]               = useState(0); // force chart re-render
 
+  // ── Seed demo data once per browser session ────────────────────────────────
+  useEffect(() => {
+    if (user?.email !== "demo@demo.com") return;
+    if (localStorage.getItem("sentir-demo-seeded") === "true") return;
+
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toDateString();
+
+    // 7 artificial days BEFORE today (days 1–7 ago)
+    // The user's own selection today becomes day 8
+    const demoHistory = [
+      { date: day(7), emotion: "Frustrado/a" },
+      { date: day(6), emotion: "Bien"         },
+      { date: day(5), emotion: "Bajo/a"       },
+      { date: day(4), emotion: "Regular"      },
+      { date: day(3), emotion: "Bien"         },
+      { date: day(2), emotion: "Tranquilo/a"  },
+      { date: day(1), emotion: "Bien"         },
+    ];
+
+    localStorage.setItem("sentir-streak",       "7");
+    localStorage.setItem("sentir-last-checkin", day(1)); // yesterday — lets user add today
+    localStorage.removeItem("sentir-today-emotion");     // no emotion selected today yet
+    localStorage.setItem("sentir-onboarded",    "true");
+    localStorage.setItem(HISTORY_KEY,           JSON.stringify(demoHistory));
+    localStorage.setItem("sentir-demo-seeded",  "true");
+    setChartKey((k) => k + 1);
+  }, [user]);
+
+  // ── Load streak + today emotion ────────────────────────────────────────────
   useEffect(() => {
     const today = new Date().toDateString();
-    const lastCheck = localStorage.getItem("sentir-last-checkin");
-    const savedStreak = parseInt(localStorage.getItem("sentir-streak") || "0");
 
-    if (lastCheck === today) {
-      setCheckedIn(true);
-      setSelectedEmotion(localStorage.getItem("sentir-today-emotion"));
-    }
-    setStreak(savedStreak);
-  }, []);
+    const applyLocal = () => {
+      const lastCheck   = localStorage.getItem("sentir-last-checkin");
+      const savedStreak = parseInt(localStorage.getItem("sentir-streak") || "0");
+      if (lastCheck === today) {
+        setCheckedIn(true);
+        setSelectedEmotion(localStorage.getItem("sentir-today-emotion"));
+      }
+      setStreak(savedStreak);
+    };
 
+    if (!user) { applyLocal(); return; }
+
+    getUserProfile(user.uid).then((profile) => {
+      if (profile?.streak !== undefined && profile.lastCheckin) {
+        localStorage.setItem("sentir-streak",       String(profile.streak));
+        localStorage.setItem("sentir-last-checkin", profile.lastCheckin);
+        if (profile.todayEmotion)
+          localStorage.setItem("sentir-today-emotion", profile.todayEmotion);
+        if (profile.emotionHistory?.length)
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(profile.emotionHistory));
+      }
+      applyLocal();
+    }).catch(applyLocal);
+  }, [user]);
+
+  // ── Handle emotion selection ───────────────────────────────────────────────
   const handleEmotionSelect = (emotion: string) => {
     setSelectedEmotion(emotion);
-    const today = new Date().toDateString();
+    const today     = new Date().toDateString();
     const lastCheck = localStorage.getItem("sentir-last-checkin");
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    let newStreak = 1;
+    const yesterday = new Date(Date.now() - 86_400_000).toDateString();
+    let newStreak   = 1;
 
-    if (lastCheck === yesterday) {
-      newStreak = (parseInt(localStorage.getItem("sentir-streak") || "0")) + 1;
-    } else if (lastCheck === today) {
-      newStreak = parseInt(localStorage.getItem("sentir-streak") || "1");
-    }
+    if (lastCheck === yesterday)     newStreak = parseInt(localStorage.getItem("sentir-streak") || "0") + 1;
+    else if (lastCheck === today)    newStreak = parseInt(localStorage.getItem("sentir-streak") || "1");
 
-    localStorage.setItem("sentir-last-checkin", today);
+    localStorage.setItem("sentir-last-checkin",  today);
     localStorage.setItem("sentir-today-emotion", emotion);
-    localStorage.setItem("sentir-streak", String(newStreak));
+    localStorage.setItem("sentir-streak",        String(newStreak));
+    saveToHistory(today, emotion);
+
     setStreak(newStreak);
     setCheckedIn(true);
+    setChartKey((k) => k + 1); // refresh chart
+
+    // Sync to Firestore
+    if (user) {
+      getUserProfile(user.uid).then((p) => {
+        const history   = p?.emotionHistory ?? [];
+        const updated   = [...history.filter((r) => r.date !== today), { date: today, emotion }];
+        updateUserProfile(user.uid, {
+          streak: newStreak, lastCheckin: today, todayEmotion: emotion, emotionHistory: updated,
+        }).catch(console.error);
+      });
+    }
   };
 
   return (
@@ -84,12 +158,13 @@ const Home = () => {
             <p className="text-sm text-foreground">
               <span className="font-semibold">Hoy te sientes {selectedEmotion?.toLowerCase()}</span>
               {" · "}
-              <span className="text-muted-foreground">
-                Recuerda que todas las emociones son válidas. 💚
-              </span>
+              <span className="text-muted-foreground">Recuerda que todas las emociones son válidas. 💚</span>
             </p>
           </motion.div>
         )}
+
+        {/* Emotion chart — shows when there's at least 2 days of history */}
+        <EmotionChart key={chartKey} />
 
         <h2 className="text-lg font-bold text-foreground pt-2">Actividades para ti</h2>
 
@@ -105,18 +180,21 @@ const Home = () => {
           title="Reflexión rápida"
           description="3 preguntas para cerrar tu día con claridad"
           gradient="gradient-coral"
+          onClick={() => navigate("/journal")}
         />
         <ActivityCard
           icon={Leaf}
           title="Respiración guiada"
           description="1 minuto para volver al presente"
           gradient="gradient-lavender"
+          onClick={() => navigate("/processes")}
         />
         <ActivityCard
           icon={Heart}
           title="Gratitud diaria"
           description="Nombra algo que agradeces hoy"
           gradient="gradient-sage"
+          onClick={() => navigate("/journal")}
         />
       </div>
 
