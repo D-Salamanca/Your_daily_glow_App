@@ -1,11 +1,15 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, MessageCircleHeart, Target, HandHeart, Settings, Moon, PiggyBank } from "lucide-react";
+import { Home, MessageCircleHeart, Target, HandHeart, Settings, Moon, PiggyBank, WifiOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import styles from "./BottomNav.module.css";
 
+const ONLINE_ONLY = new Set(["/journal", "/cycle", "/help", "/settings"]);
+
 const BottomNav = () => {
-  const location = useLocation();
+  const location   = useLocation();
+  const isOnline   = useOnlineStatus();
   const [cycleEnabled, setCycleEnabled] = useState(false);
 
   useEffect(() => {
@@ -24,12 +28,26 @@ const BottomNav = () => {
 
   return (
     <nav className={styles.nav}>
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className={styles.offlineBanner}>
+          <WifiOff className="w-3 h-3" />
+          <span>Sin conexión — solo Inicio, Procesos y Metas</span>
+        </div>
+      )}
+
       <div className={styles.inner}>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to;
+          const isActive    = location.pathname === item.to;
+          const isRestricted = !isOnline && ONLINE_ONLY.has(item.to);
+
           return (
-            <NavLink key={item.to} to={item.to} className={styles.item}>
-              {isActive && (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={`${styles.item} ${isRestricted ? styles.itemDisabled : ""}`}
+            >
+              {isActive && !isRestricted && (
                 <motion.div
                   layoutId="nav-indicator"
                   className={styles.indicator}
@@ -37,9 +55,23 @@ const BottomNav = () => {
                 />
               )}
               <item.icon
-                className={`w-5 h-5 ${styles.icon} ${isActive ? styles.iconActive : styles.iconDefault}`}
+                className={`w-5 h-5 ${styles.icon} ${
+                  isRestricted
+                    ? styles.iconDisabled
+                    : isActive
+                    ? styles.iconActive
+                    : styles.iconDefault
+                }`}
               />
-              <span className={`${styles.label} ${isActive ? styles.labelActive : styles.labelDefault}`}>
+              <span
+                className={`${styles.label} ${
+                  isRestricted
+                    ? styles.labelDisabled
+                    : isActive
+                    ? styles.labelActive
+                    : styles.labelDefault
+                }`}
+              >
                 {item.label}
               </span>
             </NavLink>
