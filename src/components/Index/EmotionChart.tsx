@@ -1,3 +1,4 @@
+import styles from './EmotionChart.module.css';
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -105,7 +106,7 @@ const EmotionChart = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.15 }}
-      className="bg-card rounded-2xl p-4 border border-border"
+      className={`bg-card rounded-2xl p-4 border border-border ${styles.chart}`}
     >
       <p className="text-sm font-semibold text-foreground mb-1">Tu semana emocional</p>
       <p className="text-xs text-muted-foreground mb-4">Últimos 7 días</p>

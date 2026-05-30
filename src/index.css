@@ -60,25 +60,55 @@
   }
 
   .dark {
-    --background: 25 15% 10%;
-    --foreground: 30 20% 90%;
-    --card: 25 15% 14%;
-    --card-foreground: 30 20% 90%;
-    --popover: 25 15% 14%;
-    --popover-foreground: 30 20% 90%;
-    --primary: 160 30% 50%;
+    --background: 220 15% 10%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 15% 14%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 15% 14%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 160 35% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 18 40% 25%;
+
+    --secondary: 18 30% 22%;
     --secondary-foreground: 18 40% 85%;
-    --muted: 25 10% 20%;
-    --muted-foreground: 25 10% 60%;
-    --accent: 18 50% 45%;
-    --accent-foreground: 18 30% 90%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 25 10% 22%;
-    --input: 25 10% 22%;
-    --ring: 160 30% 50%;
+
+    --muted: 220 12% 18%;
+    --muted-foreground: 220 10% 58%;
+
+    --accent: 18 45% 42%;
+    --accent-foreground: 18 30% 92%;
+
+    --destructive: 0 55% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 22%;
+    --input: 220 10% 22%;
+    --ring: 160 35% 52%;
+
+    /* ── Custom palette — dark variants ────────────────── */
+    --sage: 160 30% 50%;
+    --sage-light: 160 20% 18%;   /* dark sage tint for card backgrounds */
+    --coral: 18 55% 55%;
+    --coral-light: 18 25% 18%;   /* dark coral tint */
+    --peach: 25 25% 18%;
+    --lavender: 260 25% 55%;
+    --lavender-light: 260 20% 18%;
+    --sky: 200 40% 50%;
+    --sky-light: 200 20% 16%;
+    --cream: 220 15% 12%;
+
+    /* ── Sidebar ─────────────────────────────────────────── */
+    --sidebar-background: 220 15% 12%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 160 35% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 12% 18%;
+    --sidebar-accent-foreground: 210 20% 85%;
+    --sidebar-border: 220 10% 22%;
+    --sidebar-ring: 160 35% 52%;
   }
 }
 
@@ -107,7 +137,7 @@
     background: linear-gradient(135deg, hsl(var(--lavender-light)), hsl(var(--coral-light)));
   }
   .gradient-hero {
-    background: linear-gradient(160deg, hsl(var(--sage-light)) 0%, hsl(var(--cream)) 40%, hsl(var(--coral-light)) 100%);
+    background: linear-gradient(160deg, hsl(var(--sage-light)) 0%, hsl(var(--background)) 40%, hsl(var(--coral-light)) 100%);
   }
   .text-gradient-sage {
     @apply bg-clip-text text-transparent;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Geolocation } from "@capacitor/geolocation";
 
 export interface GeoState {
   lat:      number | null;
@@ -11,74 +12,77 @@ export interface GeoState {
 const INITIAL: GeoState = { lat: null, lng: null, accuracy: null, loading: false, error: null };
 
 /**
- * useGeolocation — custom hook using the browser Geolocation API
- * (navigator.geolocation.getCurrentPosition / watchPosition)
- * Works on web and on Capacitor web runtime without extra plugins.
+ * useGeolocation — custom hook using @capacitor/geolocation
+ *
+ * Geolocation.getCurrentPosition() → one-shot GPS fix
+ * Geolocation.watchPosition()      → continuous GPS updates
+ *
+ * Works on Android (native GPS), iOS and web (browser API fallback).
  */
 export function useGeolocation(autoFetch = false) {
   const [state, setState] = useState<GeoState>(INITIAL);
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef = useRef<string | null>(null);
 
   /** One-shot fetch of current position */
-  const getCurrentPosition = useCallback(() => {
-    if (!navigator.geolocation) {
-      setState((s) => ({ ...s, error: "GPS no disponible en este dispositivo" }));
-      return;
-    }
+  const getCurrentPosition = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setState({
-          lat:      pos.coords.latitude,
-          lng:      pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          loading:  false,
-          error:    null,
-        });
-      },
-      (err) => {
-        const messages: Record<number, string> = {
-          1: "Permiso de ubicación denegado",
-          2: "Posición no disponible",
-          3: "Tiempo de espera agotado",
-        };
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: messages[err.code] ?? "No se pudo obtener la ubicación",
-        }));
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
-    );
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout:            10_000,
+      });
+      setState({
+        lat:      pos.coords.latitude,
+        lng:      pos.coords.longitude,
+        accuracy: pos.coords.accuracy ?? null,
+        loading:  false,
+        error:    null,
+      });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo obtener la ubicación";
+      setState((s) => ({ ...s, loading: false, error: msg }));
+    }
   }, []);
 
   /** Start watching position (continuous GPS updates) */
-  const watchPosition = useCallback(() => {
-    if (!navigator.geolocation || watchIdRef.current !== null) return;
+  const watchPosition = useCallback(async () => {
+    if (watchIdRef.current) return;
     setState((s) => ({ ...s, loading: true, error: null }));
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        setState({
-          lat:      pos.coords.latitude,
-          lng:      pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          loading:  false,
-          error:    null,
-        });
-      },
-      (err) => {
-        setState((s) => ({ ...s, loading: false, error: err.message }));
-      },
-      { enableHighAccuracy: true }
-    );
+    try {
+      watchIdRef.current = await Geolocation.watchPosition(
+        { enableHighAccuracy: true },
+        (pos, err) => {
+          if (err || !pos) {
+            setState((s) => ({
+              ...s,
+              loading: false,
+              error: err?.message ?? "Error al rastrear ubicación",
+            }));
+            return;
+          }
+          setState({
+            lat:      pos.coords.latitude,
+            lng:      pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? null,
+            loading:  false,
+            error:    null,
+          });
+        }
+      );
+    } catch (err: unknown) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: err instanceof Error ? err.message : "No se pudo iniciar el rastreo",
+      }));
+    }
   }, []);
 
   /** Stop watching position */
-  const clearWatch = useCallback(() => {
-    if (watchIdRef.current === null) return;
-    navigator.geolocation?.clearWatch(watchIdRef.current);
+  const clearWatch = useCallback(async () => {
+    if (!watchIdRef.current) return;
+    await Geolocation.clearWatch({ id: watchIdRef.current });
     watchIdRef.current = null;
   }, []);
 

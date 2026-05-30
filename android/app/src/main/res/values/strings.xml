@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sentir</string>
+    <string name="title_activity_main">Sentir</string>
+    <string name="package_name">com.sentir.app</string>
+    <string name="custom_url_scheme">com.sentir.app</string>
+</resources>
