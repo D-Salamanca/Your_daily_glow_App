@@ -288,3 +288,96 @@ El primer proveedor de IA configurado tiene prioridad: **Claude** → **Ollama**
 | `main` | Producción estable |
 | `feature/sensores` | Integración Capacitor + sensores nativos |
 | `claude/add-axios-http-methods-*` | Capa HTTP con Axios personalizado |
+
+# 📱 Capturas de la Aplicación
+
+## 🔐 Login
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/c2f3798b-8f9a-48eb-a594-4229792863cf" width="30%">
+<img src="https://github.com/user-attachments/assets/0b4911ad-a2ee-45af-912c-544e3c3571bd" width="30%">
+<img src="https://github.com/user-attachments/assets/1bc7704b-421a-4694-ab57-c36af044c758" width="30%">
+
+<img src="https://github.com/user-attachments/assets/a9d514a1-e35b-4477-a692-5390a72e991b" width="30%">
+<img src="https://github.com/user-attachments/assets/31616ba9-d483-46d6-897d-5a64852546fd" width="30%">
+<img src="https://github.com/user-attachments/assets/2ca53202-f473-4af3-90d6-70ce9b10ba99" width="30%">
+
+<img src="https://github.com/user-attachments/assets/8cd63c04-5419-44f6-8fc2-c6b7fc358c8c" width="30%">
+
+</div>
+
+---
+
+## 🏠 Home
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/35e0d340-0f43-469c-b901-7161796aa813" width="30%">
+
+</div>
+
+---
+
+## 🤖 Chatbot
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/f5da7fdc-58b6-4efe-81d5-e0da4fe6e7ff" width="30%">
+<img src="https://github.com/user-attachments/assets/f6ba490b-9cb8-4a1a-9500-5c0cb67d12ff" width="30%">
+
+</div>
+
+---
+
+## 📈 Proceso
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/1989488e-839f-4896-9d43-d163641440ee" width="30%">
+<img src="https://github.com/user-attachments/assets/9f3f2385-ef88-4883-a04f-5e49d25b6eb3" width="30%">
+<img src="https://github.com/user-attachments/assets/e077f651-04d0-4329-b406-3152c2a16c4e" width="30%">
+
+<img src="https://github.com/user-attachments/assets/802057b6-a58a-432f-8588-ca6d03ed7271" width="30%">
+
+</div>
+
+---
+
+## 🎯 Metas
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/414f7a41-f984-4d3e-9e16-563c451ef267" width="30%">
+<img src="https://github.com/user-attachments/assets/7bd2ca0c-47cc-4264-b46c-57512df7692f" width="30%">
+
+</div>
+
+---
+
+## ❓ Ayuda
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/2f3c8940-8d22-4d9c-8777-d4d15cd64b05" width="30%">
+<img src="https://github.com/user-attachments/assets/7a108641-580c-4368-b122-e28ec0ea4569" width="30%">
+
+</div>
+
+---
+
+## ⚙️ Ajustes
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/9f61244d-d9b7-42a1-b734-c8fd01004ef4" width="30%">
+<img src="https://github.com/user-attachments/assets/9b7a37e5-ba7d-46bd-9b4d-fcf17321c690" width="30%">
+<img src="https://github.com/user-attachments/assets/e2465062-2b95-46b2-8db7-4ac2e48d9c2d" width="30%">
+
+<img src="https://github.com/user-attachments/assets/5ee74bf9-7a94-4891-a028-0f53246d994e" width="30%">
+<img src="https://github.com/user-attachments/assets/3d90558a-51d2-463f-90b0-d220b36a63b5" width="30%">
+<img src="https://github.com/user-attachments/assets/861d7da3-6c30-41e7-8036-32599d5cb22e" width="30%">
+
+<img src="https://github.com/user-attachments/assets/dfba0bc1-e434-48fc-8552-f1b2ff901404" width="30%">
+
+</div>
